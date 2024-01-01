@@ -13,5 +13,11 @@ Assuming you are in the directory of this repository, just run
 make run
 ```
 
+### Instructions
+
+Moving: Arrow Keys or WASD
+
+Hard Drop: `Space`
+
 ### License
 This project is [MIT Licensed](https://github.com/vsamarth/tetris.c/blob/main/LICENSE).
