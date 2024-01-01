@@ -1,5 +1,6 @@
 # Build directory 
 build
+release
 
 # Visual Studio Code
 .vscode
