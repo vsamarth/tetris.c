@@ -6,8 +6,7 @@
 #include <raylib.h>
 
 void RenderCell(int x, int y, Color color);
-
-typedef enum { CELL_EMPTY, CELL_CYAN } CellState;
+void SpawnTetramino();
 
 typedef enum {
   ACTION_NONE,
@@ -25,6 +24,7 @@ typedef struct {
 typedef struct {
   uint32_t rotations[4];
   Color color;
+  uint8_t idx;
 } Tetramino;
 
 typedef struct {
@@ -51,15 +51,90 @@ const char *WINDOW_TITLE = "Tetris";
 
 const Color BACKGROUND_COLOR = {240, 240, 240, 255};
 const Color LINE_COLOR = LIGHTGRAY;
-const Color RED_TILE = {0xdc, 0x26, 0x26, 0xff};
-Color CYAN_COLOR = {0x4e, 0x9a, 0xa8, 0xff};
+// Cyan: #06b6d4
+#define CYAN                                                                   \
+  (Color) { 0x06, 0xb6, 0xd4, 0xff }
 
-CellState playfield[PLAYFIELD_ROWS][PLAYFIELD_COLS];
+// Blue: #2563eb
+#define BLUE                                                                   \
+  (Color) { 0x25, 0x63, 0xeb, 0xff }
+
+// Orange: #ea580c
+#define ORANGE                                                                 \
+  (Color) { 0xea, 0x58, 0x0c, 0xff }
+
+// Yellow: #facc15
+#define YELLOW                                                                 \
+  (Color) { 0xfa, 0xcc, 0x15, 0xff }
+
+// Green: #22c55e
+#define GREEN                                                                  \
+  (Color) { 0x22, 0xc5, 0x5e, 0xff }
+
+// Purple: #9333ea
+#define PURPLE                                                                 \
+  (Color) { 0x93, 0x33, 0xea, 0xff }
+
+// Red: #dc2626
+#define RED                                                                    \
+  (Color) { 0xdc, 0x26, 0x26, 0xff }
 
 Tetramino TETRAMINO_I = {
     .rotations = {0x0F00, 0x2222, 0x00F0, 0x4444},
-    .color = {0x4e, 0x9a, 0xa8, 0xff},
+    .color = CYAN,
+    .idx = 0,
 };
+
+Tetramino TETRAMINO_O = {
+    .rotations = {0x0660, 0x0660, 0x0660, 0x0660},
+    .color = YELLOW,
+    .idx = 4,
+};
+
+Tetramino TETRAMINO_T = {
+    .rotations = {0x0E40, 0x4C40, 0x4E00, 0x4640},
+    .color = PURPLE,
+    .idx = 6,
+};
+
+Tetramino TETRAMINO_S = {
+    .rotations = {0x06C0, 0x8C40, 0x06C0, 0x8C40},
+    .color = GREEN,
+    .idx = 5,
+};
+
+Tetramino TETRAMINO_Z = {
+    .rotations = {0x0C60, 0x4C80, 0x0C60, 0x4C80},
+    .color = RED,
+    .idx = 2,
+};
+
+Tetramino TETRAMINO_J = {
+    .rotations = {0x44C0, 0x8E00, 0x6440, 0x0E20},
+    .color = BLUE,
+    .idx = 1,
+};
+
+Tetramino TETRAMINO_L = {
+    .rotations = {0x4460, 0x0E80, 0xC440, 0x2E00},
+    .color = ORANGE,
+    .idx = 3,
+};
+
+typedef enum {
+  CELL_EMPTY,
+  CELL_CYAN,
+  CELL_BLUE,
+  CELL_RED,
+  CELL_ORANGE,
+  CELL_YELLOW,
+  CELL_GREEN,
+  CELL_PURPLE
+} CellState;
+
+Color tetraminoColors[] = {CYAN, BLUE, RED, ORANGE, YELLOW, GREEN, PURPLE};
+
+CellState playfield[PLAYFIELD_ROWS][PLAYFIELD_COLS];
 
 TetraminoInstance *incomingTetramino = NULL;
 
@@ -96,8 +171,8 @@ void RenderGrid() {
 
   for (int i = 0; i < PLAYFIELD_ROWS; i++) {
     for (int j = 0; j < PLAYFIELD_COLS; j++) {
-      if (playfield[i][j] == CELL_CYAN) {
-        RenderCell(j, i, CYAN_COLOR);
+      if (playfield[i][j] != CELL_EMPTY) {
+        RenderCell(j, i, tetraminoColors[playfield[i][j] - 1]);
       }
     }
   }
@@ -114,15 +189,10 @@ void RenderCell(int x, int y, Color color) {
 }
 
 void InitGame() {
-  incomingTetramino = malloc(sizeof(TetraminoInstance));
-  incomingTetramino->tetramino = TETRAMINO_I;
-  incomingTetramino->x = 3;
-  incomingTetramino->y = 21;
-  incomingTetramino->rotation = 0;
-
   memset(playfield, 0, sizeof(playfield));
 
-  TimerCreate(&autoDropTimer, 0.8);
+  TimerCreate(&autoDropTimer, 0.2);
+  SpawnTetramino();
 }
 
 void GetCoordinates(TetraminoInstance *instance, uint8_t *coords) {
@@ -167,7 +237,7 @@ bool RenderTetrominoInstance(TetraminoInstance *instance) {
   for (int i = 0; i < 8; i += 2) {
     uint8_t x = render_coords[i];
     uint8_t y = render_coords[i + 1];
-    playfield[y][x] = CELL_CYAN;
+    playfield[y][x] = instance->tetramino.idx + 1;
   }
 
   return true;
@@ -205,15 +275,12 @@ void LockTetraminoInstance(TetraminoInstance *instance) {
   for (int i = 0; i < 8; i += 2) {
     uint8_t x = render_coords[i];
     uint8_t y = render_coords[i + 1];
-    playfield[y][x] = CELL_CYAN;
+    playfield[y][x] = instance->tetramino.idx + 1;
   }
 
   free(incomingTetramino);
   incomingTetramino = malloc(sizeof(TetraminoInstance));
-  incomingTetramino->tetramino = TETRAMINO_I;
-  incomingTetramino->x = 3;
-  incomingTetramino->y = 21;
-  incomingTetramino->rotation = 0;
+  SpawnTetramino();
 }
 
 void HandleAction(Action action) {
@@ -255,6 +322,49 @@ void HandleAction(Action action) {
       LockTetraminoInstance(incomingTetramino);
     }
   }
+}
+
+/*
+ * Shuffle
+ */
+// TODO: Review and test the randomness introduced by this function
+void ShuffleArray(int *array, size_t n) {
+  if (n > 1) {
+    size_t i;
+    for (i = 0; i < n - 1; i++) {
+      size_t j = i + GetRandomValue(0, n - i - 1);
+      int t = array[j];
+      array[j] = array[i];
+      array[i] = t;
+    }
+  }
+}
+
+int *bag = NULL;
+uint8_t shuffleIndex = 0;
+Tetramino *tetraminos[] = {&TETRAMINO_I, &TETRAMINO_O, &TETRAMINO_T,
+                           &TETRAMINO_S, &TETRAMINO_Z, &TETRAMINO_J,
+                           &TETRAMINO_L};
+                          
+void SpawnTetramino() {
+  if (bag == NULL || shuffleIndex == 7) {
+    if (bag != NULL) {
+      free(bag);
+    }
+    bag = malloc(sizeof(int) * 7);
+    for (int i = 0; i < 7; i++) {
+      bag[i] = i;
+    }
+    ShuffleArray(bag, 7);
+    shuffleIndex = 0;
+  
+  }
+  int idx = bag[shuffleIndex++];
+  incomingTetramino = malloc(sizeof(TetraminoInstance));
+  incomingTetramino->tetramino = *tetraminos[idx];
+  incomingTetramino->x = 3;
+  incomingTetramino->y = 21;
+  incomingTetramino->rotation = 0;
 }
 
 int main(int argc, char *argv[]) {
