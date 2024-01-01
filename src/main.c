@@ -7,15 +7,17 @@
 void RenderCell(int x, int y, Color color);
 void SpawnTetramino();
 
-const float AUTODROP_DURATION = 0.2;
+const float AUTODROP_DURATION = 0.7;
 uint64_t score = 0;
 
 typedef enum {
-  ACTION_NONE,
   ACTION_AUTODROP,
+  ACTION_DROP,
+  ACTION_HARD_DROP,
   ACTION_LEFT,
+  ACTION_NONE,
   ACTION_RIGHT,
-  ACTION_ROTATE
+  ACTION_ROTATE,
 } Action;
 
 typedef struct {
@@ -136,7 +138,7 @@ typedef enum {
 Color tetraminoColors[] = {CYAN_COLOR,   BLUE_COLOR,  RED_COLOR,   ORANGE_COLOR,
                            YELLOW_COLOR, GREEN_COLOR, PURPLE_COLOR};
 
-CellState playfield[PLAYFIELD_ROWS][PLAYFIELD_COLS];
+CellState playfield[PLAYFIELD_HIDDEN_ROWS][PLAYFIELD_COLS];
 
 TetraminoInstance *incomingTetramino = NULL;
 
@@ -190,6 +192,12 @@ void RenderCell(int x, int y, Color color) {
 void InitGame() {
   memset(playfield, 0, sizeof(playfield));
 
+  for (int i = 0; i < PLAYFIELD_HIDDEN_ROWS; i++) {
+    for (int j = 0; j < PLAYFIELD_COLS; j++) {
+      playfield[i][j] = CELL_EMPTY;
+    }
+  }
+
   TimerCreate(&autoDropTimer, AUTODROP_DURATION);
   SpawnTetramino();
 }
@@ -214,7 +222,6 @@ void GetCoordinates(TetraminoInstance *instance, uint8_t *coords) {
 bool CanRenderTetronimoInstance(TetraminoInstance *instance,
                                 uint8_t *render_coords) {
   GetCoordinates(instance, render_coords);
-
   for (int i = 0; i < 8; i += 2) {
     uint8_t x = render_coords[i];
     uint8_t y = render_coords[i + 1];
@@ -223,7 +230,6 @@ bool CanRenderTetronimoInstance(TetraminoInstance *instance,
       return false;
     }
   }
-
   return true;
 }
 
@@ -236,7 +242,7 @@ bool RenderTetrominoInstance(TetraminoInstance *instance) {
   for (int i = 0; i < 8; i += 2) {
     uint8_t x = render_coords[i];
     uint8_t y = render_coords[i + 1];
-    playfield[y][x] = instance->tetramino.idx + 1;
+    RenderCell(x, y, instance->tetramino.color);
   }
 
   return true;
@@ -262,6 +268,10 @@ Action HandleInput() {
     return ACTION_LEFT;
   } else if (IsKeyPressed(KEY_RIGHT) || IsKeyPressed(KEY_D)) {
     return ACTION_RIGHT;
+  } else if (IsKeyPressed(KEY_SPACE)) {
+    return ACTION_HARD_DROP;
+  } else if (IsKeyPressed(KEY_DOWN) || IsKeyPressed(KEY_S)) {
+    return ACTION_DROP;
   }
   return ACTION_NONE;
 }
@@ -301,7 +311,6 @@ void LockTetraminoInstance(TetraminoInstance *instance) {
   if (!CanRenderTetronimoInstance(instance, render_coords)) {
     return;
   }
-
   for (int i = 0; i < 8; i += 2) {
     uint8_t x = render_coords[i];
     uint8_t y = render_coords[i + 1];
@@ -328,7 +337,6 @@ void HandleAction(Action action) {
   uint8_t current_coords[8] = {0};
   uint8_t render_coords[8] = {0};
   GetCoordinates(incomingTetramino, current_coords);
-
   TetraminoInstance request = *incomingTetramino;
 
   switch (action) {
@@ -345,23 +353,31 @@ void HandleAction(Action action) {
     break;
   case ACTION_AUTODROP:
     request.y--;
-
+    break;
+  case ACTION_HARD_DROP:
+    while (CanRenderTetronimoInstance(&request, render_coords)) {
+      request.y--;
+    }
+    request.y++;
+    break;
+  case ACTION_DROP:
+    request.y -= 2;
     break;
   }
-
-  if (memcmp(current_coords, render_coords, sizeof(current_coords)) != 0) {
-    for (int i = 0; i < 8; i += 2) {
-      uint8_t x = current_coords[i];
-      uint8_t y = current_coords[i + 1];
-      playfield[y][x] = CELL_EMPTY;
-    }
-    if (CanRenderTetronimoInstance(&request, render_coords)) {
-      incomingTetramino->x = request.x;
-      incomingTetramino->y = request.y;
-      incomingTetramino->rotation = request.rotation;
-    } else if (action == ACTION_AUTODROP) {
-      LockTetraminoInstance(incomingTetramino);
-    }
+  for (int i = 0; i < 8; i += 2) {
+    uint8_t x = current_coords[i];
+    uint8_t y = current_coords[i + 1];
+    playfield[y][x] = CELL_EMPTY;
+  }
+  bool can_render = CanRenderTetronimoInstance(&request, render_coords);
+  if (can_render) {
+    incomingTetramino->x = request.x;
+    incomingTetramino->y = request.y;
+    incomingTetramino->rotation = request.rotation;
+  }
+  if ((action == ACTION_AUTODROP && !can_render) ||
+      action == ACTION_HARD_DROP) {
+    LockTetraminoInstance(incomingTetramino);
   }
   CheckGameOver();
 }
@@ -404,29 +420,24 @@ void SpawnTetramino() {
   incomingTetramino = malloc(sizeof(TetraminoInstance));
   incomingTetramino->tetramino = *tetraminos[idx];
   incomingTetramino->x = 3;
-  incomingTetramino->y = 21;
+  incomingTetramino->y = PLAYFIELD_ROWS;
   incomingTetramino->rotation = 0;
 }
 
 int main(int argc, char *argv[]) {
   InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, WINDOW_TITLE);
   SetTargetFPS(60);
-
   InitGame();
   while (!WindowShouldClose()) {
     BeginDrawing();
     ClearBackground(BACKGROUND_COLOR);
-
     RenderScore(score);
     RenderGrid();
-
     Action action = HandleInput();
     HandleAction(action);
     RenderTetrominoInstance(incomingTetramino);
-
     EndDrawing();
   }
-
   CloseWindow();
 
   return 0;
