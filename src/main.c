@@ -9,7 +9,13 @@ void RenderCell(int x, int y, Color color);
 
 typedef enum { CELL_EMPTY, CELL_CYAN } CellState;
 
-typedef enum { ACTION_NONE, ACTION_QUIT, ACTION_AUTODROP } Action;
+typedef enum {
+  ACTION_NONE,
+  ACTION_AUTODROP,
+  ACTION_LEFT,
+  ACTION_RIGHT,
+  ACTION_ROTATE
+} Action;
 
 typedef struct {
   double lastTick;
@@ -46,13 +52,13 @@ const char *WINDOW_TITLE = "Tetris";
 const Color BACKGROUND_COLOR = {240, 240, 240, 255};
 const Color LINE_COLOR = LIGHTGRAY;
 const Color RED_TILE = {0xdc, 0x26, 0x26, 0xff};
-const Color CYAN_COLOR = {0x4e, 0x9a, 0xa8, 0xff};
+Color CYAN_COLOR = {0x4e, 0x9a, 0xa8, 0xff};
 
 CellState playfield[PLAYFIELD_ROWS][PLAYFIELD_COLS];
 
 Tetramino TETRAMINO_I = {
     .rotations = {0x0F00, 0x2222, 0x00F0, 0x4444},
-    .color =  {0x4e, 0x9a, 0xa8, 0xff},
+    .color = {0x4e, 0x9a, 0xa8, 0xff},
 };
 
 TetraminoInstance *incomingTetramino = NULL;
@@ -116,32 +122,7 @@ void InitGame() {
 
   memset(playfield, 0, sizeof(playfield));
 
-  TimerCreate(&autoDropTimer, 0.5);
-}
-
-bool CanRenderTetronimoInstance(TetraminoInstance *instance,
-                                uint8_t *render_coords) {
-  int i = 0;
-  for (int y = 0; y < 4; y++) {
-    uint32_t row = instance->tetramino.rotations[instance->rotation] >> (y * 4);
-    for (int x = 0; x < 4; x++) {
-      if (row & 0x1) {
-        uint8_t _x = instance->x + x;
-        uint8_t _y = instance->y - y;
-
-        if (_x < 0 || _x >= PLAYFIELD_COLS || _y < 0 || _y >= PLAYFIELD_ROWS ||
-            playfield[_y][_x] != CELL_EMPTY) {
-          return false;
-        }
-
-        render_coords[i++] = _x;
-        render_coords[i++] = _y;
-      }
-      row >>= 1;
-    }
-  }
-  assert(i == 8);
-  return true;
+  TimerCreate(&autoDropTimer, 0.8);
 }
 
 void GetCoordinates(TetraminoInstance *instance, uint8_t *coords) {
@@ -161,19 +142,36 @@ void GetCoordinates(TetraminoInstance *instance, uint8_t *coords) {
   assert(i == 8);
 }
 
-void RenderTetrominoInstance(TetraminoInstance *instance) {
-  for (int y = 0; y < 4; y++) {
-    uint32_t row = instance->tetramino.rotations[instance->rotation] >> (y * 4);
-    for (int x = 0; x < 4; x++) {
-      if (row & 0x1) {
-        RenderCell(instance->x + x, instance->y - y, instance->tetramino.color);
-      }
-      row >>= 1;
+bool CanRenderTetronimoInstance(TetraminoInstance *instance,
+                                uint8_t *render_coords) {
+  GetCoordinates(instance, render_coords);
+
+  for (int i = 0; i < 8; i += 2) {
+    uint8_t x = render_coords[i];
+    uint8_t y = render_coords[i + 1];
+    if (x < 0 || x >= PLAYFIELD_COLS || y < 0 || y >= PLAYFIELD_ROWS ||
+        playfield[y][x] != CELL_EMPTY) {
+      return false;
     }
   }
+
+  return true;
 }
 
-void RenderGame() { RenderTetrominoInstance(incomingTetramino); }
+bool RenderTetrominoInstance(TetraminoInstance *instance) {
+  uint8_t render_coords[8];
+  if (!CanRenderTetronimoInstance(instance, render_coords)) {
+    return false;
+  }
+
+  for (int i = 0; i < 8; i += 2) {
+    uint8_t x = render_coords[i];
+    uint8_t y = render_coords[i + 1];
+    playfield[y][x] = CELL_CYAN;
+  }
+
+  return true;
+}
 
 /*
  * Input
@@ -182,36 +180,80 @@ Action HandleInput() {
   if (TimerHasElapsed(&autoDropTimer)) {
     return ACTION_AUTODROP;
   }
+
+  if (IsKeyPressed(KEY_UP) || IsKeyPressed(KEY_W)) {
+    return ACTION_ROTATE;
+  }
+
+  if (IsKeyPressed(KEY_LEFT) || IsKeyPressed(KEY_A)) {
+    return ACTION_LEFT;
+  }
+
+  if (IsKeyPressed(KEY_RIGHT) || IsKeyPressed(KEY_D)) {
+    return ACTION_RIGHT;
+  }
+
   return ACTION_NONE;
 }
 
-void HandleAutoDrop() {
+void LockTetraminoInstance(TetraminoInstance *instance) {
   uint8_t render_coords[8];
-  uint8_t coords[8];
-  incomingTetramino->y--;
-  if (!CanRenderTetronimoInstance(incomingTetramino, render_coords)) {
-    incomingTetramino->y++;
-    for (int i = 0; i < 8; i += 2) {
-      GetCoordinates(incomingTetramino, coords);
-      playfield[coords[i + 1]][coords[i]] = CELL_CYAN;
-    }
-    free(incomingTetramino);
-    incomingTetramino = malloc(sizeof(TetraminoInstance));
-    incomingTetramino->tetramino = TETRAMINO_I;
-    incomingTetramino->x = 3;
-    incomingTetramino->y = 21;
-    incomingTetramino->rotation = 0;
+  if (!CanRenderTetronimoInstance(instance, render_coords)) {
+    return;
   }
 
+  for (int i = 0; i < 8; i += 2) {
+    uint8_t x = render_coords[i];
+    uint8_t y = render_coords[i + 1];
+    playfield[y][x] = CELL_CYAN;
+  }
+
+  free(incomingTetramino);
+  incomingTetramino = malloc(sizeof(TetraminoInstance));
+  incomingTetramino->tetramino = TETRAMINO_I;
+  incomingTetramino->x = 3;
+  incomingTetramino->y = 21;
+  incomingTetramino->rotation = 0;
 }
 
 void HandleAction(Action action) {
+  uint8_t current_coords[8] = {0};
+  uint8_t render_coords[8] = {0};
+  GetCoordinates(incomingTetramino, current_coords);
+
+  TetraminoInstance request = *incomingTetramino;
+
   switch (action) {
   case ACTION_NONE:
     break;
-  case ACTION_QUIT:
+  case ACTION_ROTATE:
+    request.rotation = (request.rotation + 1) % 4;
+    break;
+  case ACTION_LEFT:
+    request.x--;
+    break;
+  case ACTION_RIGHT:
+    request.x++;
+    break;
   case ACTION_AUTODROP:
-    HandleAutoDrop();
+    request.y--;
+
+    break;
+  }
+
+  if (memcmp(current_coords, render_coords, sizeof(current_coords)) != 0) {
+    for (int i = 0; i < 8; i += 2) {
+      uint8_t x = current_coords[i];
+      uint8_t y = current_coords[i + 1];
+      playfield[y][x] = CELL_EMPTY;
+    }
+    if (CanRenderTetronimoInstance(&request, render_coords)) {
+      incomingTetramino->x = request.x;
+      incomingTetramino->y = request.y;
+      incomingTetramino->rotation = request.rotation;
+    } else if (action == ACTION_AUTODROP) {
+      LockTetraminoInstance(incomingTetramino);
+    }
   }
 }
 
@@ -224,11 +266,12 @@ int main(int argc, char *argv[]) {
     BeginDrawing();
     ClearBackground(BACKGROUND_COLOR);
 
+    RenderGrid();
+
     Action action = HandleInput();
     HandleAction(action);
 
-    RenderGrid();
-    RenderGame();
+    RenderTetrominoInstance(incomingTetramino);
 
     EndDrawing();
   }
