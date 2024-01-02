@@ -4,6 +4,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#define max(a, b) (((a) > (b)) ? (a) : (b))
+
 void RenderCell(int x, int y, Color color);
 void SpawnTetramino();
 
@@ -252,8 +254,6 @@ bool RenderTetrominoInstance(TetraminoInstance *instance) {
 void RenderScore(uint64_t score) {
   char scoreText[32];
   sprintf(scoreText, "Score: %llu", score);
-
-  // center text
   int textWidth = MeasureText(scoreText, 24);
   int x = (SCREEN_WIDTH - textWidth) / 2;
   int y = PADDING_Y;
@@ -305,8 +305,9 @@ void ResolveClears() {
     }
   }
 
+  uint16_t points[4] = {100, 300, 500, 800};
   if (clearCount > 0) {
-    score += 100 * clearCount;
+    score += points[clearCount - 1];
   }
 }
 
@@ -349,6 +350,8 @@ void HandleAction(Action action) {
   if (isPaused) {
     if (action == ACTION_RESTART) {
       InitGame();
+      isPaused = false;
+    } else if (action == ACTION_RESTART) {
       isPaused = false;
     }
     return;
@@ -398,7 +401,6 @@ void HandleAction(Action action) {
       action == ACTION_HARD_DROP) {
     LockTetraminoInstance(incomingTetramino);
   }
-  // CheckGameOver();
 }
 
 /*
@@ -448,11 +450,8 @@ void RenderGhostTetrominoInstance(TetraminoInstance *instance) {
   if (!CanRenderTetronimoInstance(instance, render_coords)) {
     return;
   }
-
   TetraminoInstance ghost = *instance;
   ghost.tetramino.color.a = 120;
-  
-
   while (CanRenderTetronimoInstance(&ghost, render_coords)) {
     ghost.y--;
   }
@@ -465,6 +464,7 @@ int main(int argc, char *argv[]) {
   InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, WINDOW_TITLE);
   SetTargetFPS(60);
   InitGame();
+  SetExitKey(KEY_NULL);
   while (!WindowShouldClose()) {
     BeginDrawing();
     ClearBackground(BACKGROUND_COLOR);
