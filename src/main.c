@@ -142,9 +142,7 @@ Color tetraminoColors[] = {CYAN_COLOR,   BLUE_COLOR,  RED_COLOR,   ORANGE_COLOR,
                            YELLOW_COLOR, GREEN_COLOR, PURPLE_COLOR};
 
 CellState playfield[PLAYFIELD_HIDDEN_ROWS][PLAYFIELD_COLS];
-
 TetraminoInstance *incomingTetramino = NULL;
-
 Timer autoDropTimer;
 
 void TimerCreate(Timer *timer, double duration) {
