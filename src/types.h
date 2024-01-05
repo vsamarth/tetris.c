@@ -44,4 +44,17 @@ typedef struct {
   int y;
 } TetraminoInstance;
 
+typedef enum GameState {
+  GAME_STATE_PLAYING,
+  GAME_STATE_GAME_OVER,
+  GAME_STATE_PAUSED,
+} GameState;
+
+typedef struct Game {
+  GameState state;
+  TetraminoInstance *currentTetramino;
+  uint64_t score;
+
+} Game;
+
 #endif

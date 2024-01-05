@@ -8,13 +8,13 @@
 
 #define max(a, b) (((a) > (b)) ? (a) : (b))
 
-void SpawnTetramino();
+TetraminoInstance *SpawnTetramino();
 void RenderCell(int x, int y, Color color);
-  
-const float AUTODROP_DURATION = 0.7;
-uint64_t score = 0;
 
-bool isPaused = false;
+const float AUTODROP_DURATION = 0.7;
+Game *game = NULL;
+int *bag = NULL;
+int shuffleIndex = 0;
 
 const int CELL_SIZE = 40;
 const int PLAYFIELD_HIDDEN_ROWS = 40;
@@ -102,12 +102,10 @@ Tetramino TETRAMINO_L = {
     .idx = 3,
 };
 
-
 Color tetraminoColors[] = {CYAN_COLOR,   BLUE_COLOR,  RED_COLOR,   ORANGE_COLOR,
                            YELLOW_COLOR, GREEN_COLOR, PURPLE_COLOR};
 
 CellState playfield[PLAYFIELD_HIDDEN_ROWS][PLAYFIELD_COLS];
-TetraminoInstance *incomingTetramino = NULL;
 Timer autoDropTimer;
 
 void TimerCreate(Timer *timer, double duration) {
@@ -156,6 +154,14 @@ void RenderCell(int x, int y, Color color) {
 }
 
 void InitGame() {
+  game = malloc(sizeof(Game));
+  game->state = GAME_STATE_PLAYING;
+  game->currentTetramino = NULL;
+  game->score = 0;
+
+bag = NULL;
+shuffleIndex = 0;
+
   memset(playfield, 0, sizeof(playfield));
 
   for (int i = 0; i < PLAYFIELD_HIDDEN_ROWS; i++) {
@@ -165,7 +171,7 @@ void InitGame() {
   }
 
   TimerCreate(&autoDropTimer, AUTODROP_DURATION);
-  SpawnTetramino();
+  game->currentTetramino = SpawnTetramino();
 }
 
 void GetCoordinates(TetraminoInstance *instance, uint8_t *coords) {
@@ -236,7 +242,7 @@ Action HandleInput() {
     return ACTION_HARD_DROP;
   } else if (IsKeyPressed(KEY_DOWN) || IsKeyPressed(KEY_S)) {
     return ACTION_DROP;
-  } else if (isPaused && IsKeyPressed(KEY_R)) {
+  } else if (game->state == GAME_STATE_PAUSED && IsKeyPressed(KEY_R)) {
     return ACTION_RESTART;
   }
   return ACTION_NONE;
@@ -270,7 +276,7 @@ void ResolveClears() {
 
   uint16_t points[4] = {100, 300, 500, 800};
   if (clearCount > 0) {
-    score += points[clearCount - 1];
+    game->score += points[clearCount - 1];
   }
 }
 
@@ -287,9 +293,8 @@ void LockTetraminoInstance(TetraminoInstance *instance) {
 
   ResolveClears();
 
-  free(incomingTetramino);
-  incomingTetramino = malloc(sizeof(TetraminoInstance));
-  SpawnTetramino();
+  free(game->currentTetramino);
+  game->currentTetramino = SpawnTetramino();
 }
 
 void DrawGameOver() {
@@ -304,25 +309,25 @@ void CheckGameOver() {
   for (int i = 0; i < PLAYFIELD_COLS; i++) {
     if (playfield[PLAYFIELD_ROWS - 1][i] != CELL_EMPTY) {
       DrawGameOver();
-      isPaused = true;
+      game->state = GAME_STATE_PAUSED;
     }
   }
 }
 
 void HandleAction(Action action) {
-  if (isPaused) {
+  if (game->state == GAME_STATE_PAUSED) {
     if (action == ACTION_RESTART) {
       InitGame();
-      isPaused = false;
+      game->state = GAME_STATE_PLAYING;
     } else if (action == ACTION_RESTART) {
-      isPaused = false;
+      return;
     }
     return;
   }
   uint8_t current_coords[8] = {0};
   uint8_t render_coords[8] = {0};
-  GetCoordinates(incomingTetramino, current_coords);
-  TetraminoInstance request = *incomingTetramino;
+  GetCoordinates(game->currentTetramino, current_coords);
+  TetraminoInstance request = *game->currentTetramino;
 
   switch (action) {
   case ACTION_NONE:
@@ -356,13 +361,13 @@ void HandleAction(Action action) {
   }
   bool can_render = CanRenderTetronimoInstance(&request, render_coords);
   if (can_render) {
-    incomingTetramino->x = request.x;
-    incomingTetramino->y = request.y;
-    incomingTetramino->rotation = request.rotation;
+    game->currentTetramino->x = request.x;
+    game->currentTetramino->y = request.y;
+    game->currentTetramino->rotation = request.rotation;
   }
   if ((action == ACTION_AUTODROP && !can_render) ||
       action == ACTION_HARD_DROP) {
-    LockTetraminoInstance(incomingTetramino);
+    LockTetraminoInstance(game->currentTetramino);
   }
 }
 
@@ -382,13 +387,11 @@ void ShuffleArray(int *array, size_t n) {
   }
 }
 
-int *bag = NULL;
-uint8_t shuffleIndex = 0;
 Tetramino *tetraminos[] = {&TETRAMINO_I, &TETRAMINO_O, &TETRAMINO_T,
                            &TETRAMINO_S, &TETRAMINO_Z, &TETRAMINO_J,
                            &TETRAMINO_L};
 
-void SpawnTetramino() {
+TetraminoInstance *SpawnTetramino() {
   if (bag == NULL || shuffleIndex == 7) {
     if (bag != NULL) {
       free(bag);
@@ -401,11 +404,12 @@ void SpawnTetramino() {
     shuffleIndex = 0;
   }
   int idx = bag[shuffleIndex++];
-  incomingTetramino = malloc(sizeof(TetraminoInstance));
-  incomingTetramino->tetramino = *tetraminos[idx];
-  incomingTetramino->x = 3;
-  incomingTetramino->y = 21;
-  incomingTetramino->rotation = 0;
+  TetraminoInstance *instance = malloc(sizeof(TetraminoInstance));
+  instance->tetramino = *tetraminos[idx];
+  instance->x = 3;
+  instance->y = 20;
+  instance->rotation = 0;
+  return instance;
 }
 
 void RenderGhostTetrominoInstance(TetraminoInstance *instance) {
@@ -420,7 +424,6 @@ void RenderGhostTetrominoInstance(TetraminoInstance *instance) {
   }
   ghost.y++;
   RenderTetrominoInstance(&ghost);
-
 }
 
 int main(int argc, char *argv[]) {
@@ -431,13 +434,13 @@ int main(int argc, char *argv[]) {
   while (!WindowShouldClose()) {
     BeginDrawing();
     ClearBackground(BACKGROUND_COLOR);
-    RenderScore(score);
+    RenderScore(game->score);
     RenderGrid();
     Action action = HandleInput();
     HandleAction(action);
     CheckGameOver();
-    RenderTetrominoInstance(incomingTetramino);
-    RenderGhostTetrominoInstance(incomingTetramino);
+    RenderTetrominoInstance(game->currentTetramino);
+    RenderGhostTetrominoInstance(game->currentTetramino);
     EndDrawing();
   }
   CloseWindow();
