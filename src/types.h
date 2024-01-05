@@ -55,6 +55,8 @@ typedef struct Game {
   TetraminoInstance *currentTetramino;
   uint64_t score;
 
+  Tetramino *tetraminoes;  
+
 } Game;
 
 #endif

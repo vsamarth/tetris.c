@@ -30,6 +30,6 @@ CPMAddPackage(
   GIT_TAG 5.0
 )
 
-add_executable(tetris src/main.c)
+add_executable(tetris src/main.c src/shuffle.c)
 
 target_link_libraries(tetris raylib)

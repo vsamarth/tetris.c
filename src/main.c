@@ -4,15 +4,16 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "shuffle.h"
 #include "types.h"
 
 #define max(a, b) (((a) > (b)) ? (a) : (b))
 
-TetraminoInstance *SpawnTetramino();
 void RenderCell(int x, int y, Color color);
 
 const float AUTODROP_DURATION = 0.7;
 Game *game = NULL;
+Shuffler *shuffler = NULL;
 int *bag = NULL;
 int shuffleIndex = 0;
 
@@ -102,6 +103,9 @@ Tetramino TETRAMINO_L = {
     .idx = 3,
 };
 
+Tetramino *tetraminos[] = {&TETRAMINO_I, &TETRAMINO_O, &TETRAMINO_T,
+                           &TETRAMINO_S, &TETRAMINO_Z, &TETRAMINO_J,
+                           &TETRAMINO_L};
 Color tetraminoColors[] = {CYAN_COLOR,   BLUE_COLOR,  RED_COLOR,   ORANGE_COLOR,
                            YELLOW_COLOR, GREEN_COLOR, PURPLE_COLOR};
 
@@ -159,8 +163,18 @@ void InitGame() {
   game->currentTetramino = NULL;
   game->score = 0;
 
-bag = NULL;
-shuffleIndex = 0;
+  bag = NULL;
+  shuffleIndex = 0;
+
+  shuffler = malloc(sizeof(Shuffler));
+  
+  Tetramino t[] = {TETRAMINO_I, TETRAMINO_O, TETRAMINO_T, TETRAMINO_S, TETRAMINO_Z, TETRAMINO_J, TETRAMINO_L};
+  game->tetraminoes = malloc(sizeof(t));
+  memcpy(game->tetraminoes, t, sizeof(t));
+  
+
+  initShuffler(shuffler, game->tetraminoes, 7);
+
 
   memset(playfield, 0, sizeof(playfield));
 
@@ -171,7 +185,8 @@ shuffleIndex = 0;
   }
 
   TimerCreate(&autoDropTimer, AUTODROP_DURATION);
-  game->currentTetramino = SpawnTetramino();
+  game->currentTetramino = malloc(sizeof(TetraminoInstance));
+  nextTetramino(shuffler, game->currentTetramino);
 }
 
 void GetCoordinates(TetraminoInstance *instance, uint8_t *coords) {
@@ -293,8 +308,7 @@ void LockTetraminoInstance(TetraminoInstance *instance) {
 
   ResolveClears();
 
-  free(game->currentTetramino);
-  game->currentTetramino = SpawnTetramino();
+  nextTetramino(shuffler, game->currentTetramino);
 }
 
 void DrawGameOver() {
@@ -371,10 +385,6 @@ void HandleAction(Action action) {
   }
 }
 
-/*
- * Shuffle
- */
-// TODO: Review and test the randomness introduced by this function
 void ShuffleArray(int *array, size_t n) {
   if (n > 1) {
     size_t i;
@@ -385,31 +395,6 @@ void ShuffleArray(int *array, size_t n) {
       array[i] = t;
     }
   }
-}
-
-Tetramino *tetraminos[] = {&TETRAMINO_I, &TETRAMINO_O, &TETRAMINO_T,
-                           &TETRAMINO_S, &TETRAMINO_Z, &TETRAMINO_J,
-                           &TETRAMINO_L};
-
-TetraminoInstance *SpawnTetramino() {
-  if (bag == NULL || shuffleIndex == 7) {
-    if (bag != NULL) {
-      free(bag);
-    }
-    bag = malloc(sizeof(int) * 7);
-    for (int i = 0; i < 7; i++) {
-      bag[i] = i;
-    }
-    ShuffleArray(bag, 7);
-    shuffleIndex = 0;
-  }
-  int idx = bag[shuffleIndex++];
-  TetraminoInstance *instance = malloc(sizeof(TetraminoInstance));
-  instance->tetramino = *tetraminos[idx];
-  instance->x = 3;
-  instance->y = 20;
-  instance->rotation = 0;
-  return instance;
 }
 
 void RenderGhostTetrominoInstance(TetraminoInstance *instance) {
