@@ -4,44 +4,17 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "types.h"
+
 #define max(a, b) (((a) > (b)) ? (a) : (b))
 
-void RenderCell(int x, int y, Color color);
 void SpawnTetramino();
-
+void RenderCell(int x, int y, Color color);
+  
 const float AUTODROP_DURATION = 0.7;
 uint64_t score = 0;
 
 bool isPaused = false;
-
-typedef enum {
-  ACTION_AUTODROP,
-  ACTION_DROP,
-  ACTION_HARD_DROP,
-  ACTION_LEFT,
-  ACTION_NONE,
-  ACTION_RIGHT,
-  ACTION_ROTATE,
-  ACTION_RESTART,
-} Action;
-
-typedef struct {
-  double lastTick;
-  double duration;
-} Timer;
-
-typedef struct {
-  uint32_t rotations[4];
-  Color color;
-  uint8_t idx;
-} Tetramino;
-
-typedef struct {
-  Tetramino tetramino;
-  int rotation;
-  int x;
-  int y;
-} TetraminoInstance;
 
 const int CELL_SIZE = 40;
 const int PLAYFIELD_HIDDEN_ROWS = 40;
@@ -129,16 +102,6 @@ Tetramino TETRAMINO_L = {
     .idx = 3,
 };
 
-typedef enum {
-  CELL_EMPTY,
-  CELL_CYAN,
-  CELL_BLUE,
-  CELL_RED,
-  CELL_ORANGE,
-  CELL_YELLOW,
-  CELL_GREEN,
-  CELL_PURPLE
-} CellState;
 
 Color tetraminoColors[] = {CYAN_COLOR,   BLUE_COLOR,  RED_COLOR,   ORANGE_COLOR,
                            YELLOW_COLOR, GREEN_COLOR, PURPLE_COLOR};
