@@ -11,11 +11,9 @@
 
 void RenderCell(int x, int y, Color color);
 
-const float AUTODROP_DURATION = 0.7;
+const float AUTODROP_DURATION = 0.5;
 Game *game = NULL;
 Shuffler *shuffler = NULL;
-int *bag = NULL;
-int shuffleIndex = 0;
 
 const int CELL_SIZE = 40;
 const int PLAYFIELD_HIDDEN_ROWS = 40;
@@ -162,9 +160,6 @@ void InitGame() {
   game->state = GAME_STATE_PLAYING;
   game->currentTetramino = NULL;
   game->score = 0;
-
-  bag = NULL;
-  shuffleIndex = 0;
 
   shuffler = malloc(sizeof(Shuffler));
   
