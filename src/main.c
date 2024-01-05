@@ -11,7 +11,7 @@
 
 void RenderCell(int x, int y, Color color);
 
-const float AUTODROP_DURATION = 0.5;
+const float AUTODROP_DURATION = 0.2;
 Game *game = NULL;
 Shuffler *shuffler = NULL;
 

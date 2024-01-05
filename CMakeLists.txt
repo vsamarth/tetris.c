@@ -14,8 +14,10 @@ file(
 )
 include(${CMAKE_CURRENT_BINARY_DIR}/cmake/CPM.cmake)
 
+set(PROJECT_NAME tetris)
+
 project(
-    tetris
+    ${PROJECT_NAME}
     VERSION 0.1.0
     DESCRIPTION "Tetris game"
     LANGUAGES C
@@ -29,7 +31,15 @@ CPMAddPackage(
   VERSION 5.0
   GIT_TAG 5.0
 )
-
 add_executable(tetris src/main.c src/shuffle.c)
 
 target_link_libraries(tetris raylib)
+
+install(TARGETS tetris RUNTIME DESTINATION bin)
+
+# Configure CPack
+set(CPACK_PROJECT_NAME ${PROJECT_NAME})
+set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})
+
+set(CPACK_PACKAGE_CHECKSUM SHA256)
+include(CPack)
