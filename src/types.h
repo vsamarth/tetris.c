@@ -24,6 +24,7 @@ typedef enum {
   ACTION_RIGHT,
   ACTION_ROTATE,
   ACTION_RESTART,
+  ACTION_PAUSE,
 } Action;
 
 typedef struct {

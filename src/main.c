@@ -240,6 +240,15 @@ void RenderScore(uint64_t score) {
 }
 
 Action HandleInput() {
+  if (IsKeyPressed(KEY_ESCAPE)) {
+    return ACTION_PAUSE;
+  }
+  if (game->state == GAME_STATE_PAUSED) {
+    if (IsKeyPressed(KEY_R)) {
+      return ACTION_RESTART;
+    }
+    return ACTION_NONE;
+  }
   if (TimerHasElapsed(&autoDropTimer)) {
     return ACTION_AUTODROP;
   } else if (IsKeyPressed(KEY_UP) || IsKeyPressed(KEY_W)) {
@@ -252,8 +261,6 @@ Action HandleInput() {
     return ACTION_HARD_DROP;
   } else if (IsKeyPressed(KEY_DOWN) || IsKeyPressed(KEY_S)) {
     return ACTION_DROP;
-  } else if (game->state == GAME_STATE_PAUSED && IsKeyPressed(KEY_R)) {
-    return ACTION_RESTART;
   }
   return ACTION_NONE;
 }
@@ -314,6 +321,15 @@ void DrawGameOver() {
   DrawText("Press R to restart", x, y + 48, 24, GRAY);
 }
 
+void DrawPause() {
+  int textWidth = MeasureText("Paused", 48);
+  int x = (SCREEN_WIDTH - textWidth) / 2;
+  int y = SCREEN_HEIGHT / 2;
+  DrawText("Paused", x, y, 48, GRAY);
+  DrawText("Press ESC to resume", x, y + 48, 24, GRAY);
+  DrawText("Press R to restart", x, y + 80, 24, GRAY);
+}
+
 void CheckGameOver() {
   for (int i = 0; i < PLAYFIELD_COLS; i++) {
     if (playfield[PLAYFIELD_ROWS - 1][i] != CELL_EMPTY) {
@@ -324,18 +340,22 @@ void CheckGameOver() {
 }
 
 void HandleAction(Action action) {
+  if (action == ACTION_PAUSE) {
+    if (game->state == GAME_STATE_PLAYING) {
+      game->state = GAME_STATE_PAUSED;
+    } else if (game->state == GAME_STATE_PAUSED) {
+      game->state = GAME_STATE_PLAYING;
+    }
+    return;
+  }
   if (game->state == GAME_STATE_PAUSED) {
     if (action == ACTION_RESTART) {
       InitGame();
       game->state = GAME_STATE_PLAYING;
-    } else if (action == ACTION_RESTART) {
-      return;
     }
     return;
   }
-  uint8_t current_coords[8] = {0};
   uint8_t render_coords[8] = {0};
-  GetCoordinates(game->currentTetramino, current_coords);
   TetraminoInstance request = *game->currentTetramino;
 
   switch (action) {
@@ -362,11 +382,6 @@ void HandleAction(Action action) {
   case ACTION_DROP:
     request.y -= 2;
     break;
-  }
-  for (int i = 0; i < 8; i += 2) {
-    uint8_t x = current_coords[i];
-    uint8_t y = current_coords[i + 1];
-    playfield[y][x] = CELL_EMPTY;
   }
   bool can_render = CanRenderTetronimoInstance(&request, render_coords);
   if (can_render) {
@@ -421,6 +436,9 @@ int main(int argc, char *argv[]) {
     CheckGameOver();
     RenderTetrominoInstance(game->currentTetramino);
     RenderGhostTetrominoInstance(game->currentTetramino);
+    if (game->state == GAME_STATE_PAUSED) {
+      DrawPause();
+    }
     EndDrawing();
   }
   CloseWindow();
